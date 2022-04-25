@@ -169,6 +169,17 @@ func ChannelHandler(srv *ssh.Server, conn *gossh.ServerConn, newChan gossh.NewCh
 				_ = ch.Close()
 				return
 			}
+			go func(cnx *gossh.ServerConn, dbConn *gorm.DB, sessionID uint) {
+				for {
+					sess := dbmodels.Session{Model: gorm.Model{ID: sessionID}, Status: string(dbmodels.SessionStatusActive)}
+					if err := dbConn.First(&sess).Error; err != nil || sess.Status != string(dbmodels.SessionStatusActive) {
+						log.Println("Session should be closed", sessionID, "closing connection")
+						conn.Close()
+						break
+					}
+					time.Sleep(30 * time.Second) // TODO: VDO: make configurable
+				}
+			}(conn, actx.db, sess.ID)
 			go func() {
 				err = multiChannelHandler(conn, newChan, ctx, sessionConfigs, sess.ID)
 				if err != nil {
