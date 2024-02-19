@@ -90,10 +90,7 @@ GLOBAL OPTIONS:
 		return cli.NewExitError(err.Error(), 1)
 	}
 
-	if _, ok := ActiveSessions[actx.user.ID]; !ok {
-		ActiveSessions[actx.user.ID] = map[uint]ssh.Session{}
-	}
-	ActiveSessions[actx.user.ID][internalSessID] = s
+	CnxManager.AddSession(actx.user.ID, internalSessID, s)
 
 	app.Commands = []cli.Command{
 		{
@@ -2476,7 +2473,7 @@ GLOBAL OPTIONS:
 		StoppedAt: &now,
 	}
 	actx.db.Model(&sess).Updates(&sessUpdate)
-	delete(ActiveSessions[actx.user.ID], sess.ID)
+	CnxManager.DelSession(actx.user.ID, sess.ID)
 
 	return nil
 }
