@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 	"math/rand"
+	"os/exec"
 
 	"github.com/gliderlabs/ssh"
 	gossh "golang.org/x/crypto/ssh"
@@ -94,7 +95,9 @@ func ChannelHandler(srv *ssh.Server, conn *gossh.ServerConn, newChan gossh.NewCh
 		ip, err := net.ResolveTCPAddr(conn.RemoteAddr().Network(), conn.RemoteAddr().String())
 		if err == nil {
 			log.Printf("Auth failed: sshUser=%q remote=%q", conn.User(), ip.IP.String())
-			actx.err = errors.New("access denied")
+			if actx.err == nil {
+				actx.err = errors.New("access denied")
+			}
 
 			ch, _, err2 := newChan.Accept()
 			if err2 != nil {
@@ -336,6 +339,16 @@ func PublicKeyAuthHandler(db *gorm.DB, logsLocation, aclCheckCmd, aesKey, dbDriv
 		}
 		ctx.SetValue(authContextKey, actx)
 
+		cmd := exec.Command("sshportal-hook-pubkeyauth",
+		    actx.inputUsername,
+		    string(gossh.MarshalAuthorizedKey(key)))
+		out, err := cmd.CombinedOutput()
+		if (err != nil) {
+			log.Printf("hook returned: %s", out)
+			actx.err = fmt.Errorf("Auth hook failed: %s", out)
+			return true
+		}
+
 		// lookup user by key
 		db.Where("authorized_key = ?", string(gossh.MarshalAuthorizedKey(key))).First(&actx.userKey)
 		if actx.userKey.UserID > 0 {
@@ -343,7 +356,7 @@ func PublicKeyAuthHandler(db *gorm.DB, logsLocation, aclCheckCmd, aesKey, dbDriv
 
 			if actx.user.Comment == USER_DISABLED {
 				actx.err = fmt.Errorf("This account has been disabled")
-				return false
+				return true
 			}
 
 			if actx.userType() == userTypeInvite {

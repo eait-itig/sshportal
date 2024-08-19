@@ -12,11 +12,8 @@ import (
 	"runtime"
 	"strings"
 	"time"
-	"net"
 	"log"
-	"context"
 
-	"gorm.io/gorm"
 	shlex "github.com/anmitsu/go-shlex"
 	"github.com/asaskevich/govalidator"
 	"github.com/docker/docker/pkg/namesgenerator"
@@ -79,7 +76,7 @@ GLOBAL OPTIONS:
 		myself = &actx.user
 		db     = actx.db
 	)
-	
+
 	sess := dbmodels.Session{
 				UserID: actx.user.ID,
 				HostID: 0,

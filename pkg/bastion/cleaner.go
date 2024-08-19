@@ -54,7 +54,10 @@ func (cm *ConnectionManager) GetActiveSessions(userID uint) (map[uint]ssh.Sessio
 
 func (cm *ConnectionManager) AddSession(userID, sid uint, sess ssh.Session) {
 	cm.Lock()
-
+	if _, ok := cm.ActiveSessions[userID]; !ok {
+		cm.ActiveSessions[userID] = map[uint]ssh.Session{}
+	}
+	cm.ActiveSessions[userID][sid] = sess
 	cm.Unlock()
 }
 
@@ -84,6 +87,8 @@ func CleanConnections(db *gorm.DB) {
 			}
 			if sessions, ok := CnxManager.GetActiveSessions(user.ID); ok {
 				for sid, sess := range sessions {
+					sess.Stderr().Write([]byte("\r\nSESSION KICKED\r\n"))
+					sess.Exit(1)
 					sess.Close()
 					CnxManager.DelSession(user.ID, sid)
 				}
